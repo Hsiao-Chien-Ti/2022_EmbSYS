@@ -18,7 +18,7 @@
 #include <events/mbed_events.h>
 #include "ble/BLE.h"
 #include "ble/gap/Gap.h"
-#include "ble/services/HeartRateService.h"
+#include "HeartRateService.h"
 #include "pretty_printer.h"
 #include "mbed-trace/mbed_trace.h"
 #include "MagnetoService.h"
@@ -36,7 +36,7 @@ public:
         _ble(ble),
         _event_queue(event_queue),
         _heartrate_uuid(GattService::UUID_HEART_RATE_SERVICE),
-        _heartrate_value(100),
+        _heartrate_value(60),
         _heartrate_service(ble, _heartrate_value, HeartRateService::LOCATION_FINGER),
         pDataXYZ{0,0,0},
         _magneto_X_service(ble, pDataXYZ[0], MagnetoService::MAGNETO_X,0x1234),
@@ -132,8 +132,8 @@ private:
         _heartrate_value++;
 
         /*  60 <= bpm value < 110 */
-        if (_heartrate_value == 10) {
-            _heartrate_value = -30;
+        if (_heartrate_value == 110) {
+            _heartrate_value = 60;
         }
         BSP_MAGNETO_GetXYZ(pDataXYZ);
 

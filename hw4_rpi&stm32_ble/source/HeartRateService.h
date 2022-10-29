@@ -17,15 +17,15 @@
  */
 
 /* MBED_DEPRECATED */
-#ifndef MBED_BLE_MAGNETO_SERVICE_H__
-#define MBED_BLE_MAGNETO_SERVICE_H__
+#warning "These services are deprecated and will be removed. Please see services.md for details about replacement services."
+
+#ifndef MBED_BLE_HEART_RATE_SERVICE_H__
+#define MBED_BLE_HEART_RATE_SERVICE_H__
 
 #include "ble/BLE.h"
 #include "ble/Gap.h"
 #include "ble/GattServer.h"
-#include "cstdio"
-#include <cstdint>
-#include <stdint.h>
+
 #if BLE_FEATURE_GATT_SERVER
 
 /**
@@ -64,26 +64,46 @@
  * @attention The heart rate profile limits the number of instantiations of the
  * heart rate services to one.
  */
-class MagnetoService {
+class HeartRateService {
 public:
     /**
      * Intended location of the heart rate sensor.
      */
-    enum SensorAxis {
+    enum BodySensorLocation {
         /**
          * Other location.
          */
-        MAGNETO_X = 0,
+        LOCATION_OTHER = 0,
 
         /**
          * Chest.
          */
-        MAGNETO_Y = 1,
+        LOCATION_CHEST = 1,
 
         /**
          * Wrist.
          */
-        MAGNETO_Z = 2,
+        LOCATION_WRIST = 2,
+
+        /**
+         * Finger.
+         */
+        LOCATION_FINGER,
+
+        /**
+         * Hand.
+         */
+        LOCATION_HAND,
+
+        /**
+         * Earlobe.
+         */
+        LOCATION_EAR_LOBE,
+
+        /**
+         * Foot.
+         */
+        LOCATION_FOOT,
     };
 
 public:
@@ -95,26 +115,27 @@ public:
      * to @p hrmCounter and the value of the body sensor location characteristic
      * to @p location.
      *
-     * @param[in] _ble BLE device that hosts the magneto service.
-     * @param[in] value get from the magneto
-     * @param[in] axis of the magneto
+     * @param[in] _ble BLE device that hosts the heart rate service.
+     * @param[in] hrmCounter Heart beats per minute measured by the heart rate
+     * sensor.
+     * @param[in] location Intended location of the heart rate sensor.
      */
-    MagnetoService(BLE &_ble, int16_t magnetoCounter, SensorAxis axis, uint16_t UUID) :
+    HeartRateService(BLE &_ble, uint16_t hrmCounter, BodySensorLocation location) :
         ble(_ble),
-        valueBytes(magnetoCounter),
-        magnetoValue(
-            UUID+1,
+        valueBytes(hrmCounter),
+        hrmRate(
+            GattCharacteristic::UUID_HEART_RATE_MEASUREMENT_CHAR,
             valueBytes.getPointer(),
             valueBytes.getNumValueBytes(),
-            MagnetoValueBytes::MAX_VALUE_BYTES,
+            HeartRateValueBytes::MAX_VALUE_BYTES,
             GattCharacteristic::BLE_GATT_CHAR_PROPERTIES_NOTIFY
         ),
-        magnetoAxis(
-            UUID+2,
-            reinterpret_cast<uint8_t*>(&axis)
+        hrmLocation(
+            GattCharacteristic::UUID_BODY_SENSOR_LOCATION_CHAR,
+            reinterpret_cast<uint8_t*>(&location)
         )
     {
-        setupService(UUID);
+        setupService();
     }
 
     /**
@@ -130,10 +151,10 @@ public:
      * @attention This function must be called in the execution context of the
      * BLE stack.
      */
-    void updateMagnetoValue(int16_t magnetoCounter) {
-        valueBytes.updateMagnetoValue(magnetoCounter);
+    void updateHeartRate(uint16_t hrmCounter) {
+        valueBytes.updateHeartRate(hrmCounter);
         ble.gattServer().write(
-            magnetoValue.getValueHandle(),
+            hrmRate.getValueHandle(),
             valueBytes.getPointer(),
             valueBytes.getNumValueBytes()
         );
@@ -143,37 +164,49 @@ protected:
     /**
      * Construct and add to the GattServer the heart rate service.
      */
-    void setupService(uint16_t UUID) {
+    void setupService() {
         GattCharacteristic *charTable[] = {
-            &magnetoValue,
-            &magnetoAxis
+            &hrmRate,
+            &hrmLocation
         };
-        GattService magnetoService(
-            UUID,
+        GattService hrmService(
+            GattService::UUID_HEART_RATE_SERVICE,
             charTable,
             sizeof(charTable) / sizeof(charTable[0])
         );
 
-        ble.gattServer().addService(magnetoService);
+        ble.gattServer().addService(hrmService);
     }
 
 protected:
-    struct MagnetoValueBytes {
+    /*
+     * Heart rate measurement value.
+     */
+    struct HeartRateValueBytes {
         /* 1 byte for the Flags, and up to two bytes for heart rate value. */
         static const unsigned MAX_VALUE_BYTES = 3;
+        static const unsigned FLAGS_BYTE_INDEX = 0;
 
-        MagnetoValueBytes(int16_t magnetoCounter) : valueBytes()
+        static const unsigned VALUE_FORMAT_BITNUM = 0;
+        static const uint8_t  VALUE_FORMAT_FLAG = (1 << VALUE_FORMAT_BITNUM);
+
+        HeartRateValueBytes(uint16_t hrmCounter) : valueBytes()
         {
-            updateMagnetoValue(magnetoCounter);
+            updateHeartRate(hrmCounter);
         }
 
-        void updateMagnetoValue(int16_t magnetoCounter)
+        void updateHeartRate(uint16_t hrmCounter)
         {
-            // std::sprintf((char*)valueBytes,"%04X",(char)magnetoCounter);
-            valueBytes[0]=(magnetoCounter&0xFF0000)>>16;
-            valueBytes[1]=(magnetoCounter&0x00FF00)>>8;
-            valueBytes[2]=(magnetoCounter&0x0000FF);
-            printf("%d, %x, %x, %x \n",magnetoCounter,valueBytes[0],valueBytes[1],valueBytes[2]);
+            valueBytes[FLAGS_BYTE_INDEX]=(hrmCounter&0xFF00)>>8;
+            valueBytes[FLAGS_BYTE_INDEX+1]=(hrmCounter&0x00FF);
+            // if (hrmCounter <= 255) {
+            //     valueBytes[FLAGS_BYTE_INDEX] &= ~VALUE_FORMAT_FLAG;
+            //     valueBytes[FLAGS_BYTE_INDEX + 1] = hrmCounter;
+            // } else {
+            //     valueBytes[FLAGS_BYTE_INDEX] |= VALUE_FORMAT_FLAG;
+            //     valueBytes[FLAGS_BYTE_INDEX + 1] = (uint8_t)(hrmCounter & 0xFF);
+            //     valueBytes[FLAGS_BYTE_INDEX + 2] = (uint8_t)(hrmCounter >> 8);
+            // }
         }
 
         uint8_t *getPointer()
@@ -188,7 +221,11 @@ protected:
 
         unsigned getNumValueBytes() const
         {
-            return MAX_VALUE_BYTES;
+            if (valueBytes[FLAGS_BYTE_INDEX] & VALUE_FORMAT_FLAG) {
+                return 1 + sizeof(uint16_t);
+            } else {
+                return 1 + sizeof(uint8_t);
+            }
         }
 
     private:
@@ -197,9 +234,9 @@ protected:
 
 protected:
     BLE &ble;
-    MagnetoValueBytes valueBytes;
-    GattCharacteristic magnetoValue;
-    ReadOnlyGattCharacteristic<uint8_t> magnetoAxis;
+    HeartRateValueBytes valueBytes;
+    GattCharacteristic hrmRate;
+    ReadOnlyGattCharacteristic<uint8_t> hrmLocation;
 };
 
 #endif // BLE_FEATURE_GATT_SERVER
