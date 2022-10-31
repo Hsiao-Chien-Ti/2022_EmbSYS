@@ -1,9 +1,9 @@
-# PwmOut example
+This project demonstrates two type of PWM application using LED.
 
-This example shows how to use PwmOut to modulate LED blinking.
+Mode 1:Length Control
 
-**Note**: Set the cycle time. Then set the duty cycle using either a relative time period with the `write()` function or an absolute time period using the `pulsewidth()` function.
+The behavior of this mode should be: long_pulse-short_pulse-long_pulse
 
+Mode 2:Brightness Control
 
-MIRRORED FROM MASTER EXAMPLE SNIPPETS REPOSITORY: mbed-os-examples-docs_only.
-ANY CHANGES MADE DIRECTLY TO THIS REPOSITORY WILL BE AUTOMATICALLY OVERWRITTEN.
+This mode shold behaves as a breathing light.
